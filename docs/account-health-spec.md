@@ -1,5 +1,10 @@
 # `linkedin_account_health` — MCP tool spec
 
+**Status: implemented** as `linkedin.account_health`, tier `read`. See gap 7 in
+[mcp-gaps.md](mcp-gaps.md) for the four changes it needed. The three bugs
+listed below are fixed at the tool boundary, not in the original code — the
+extension still caches and decrements the credit internally.
+
 Surface the two ceilings that decide whether a campaign will actually run, so
 volume advice stops being a guess.
 

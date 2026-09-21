@@ -3,10 +3,10 @@
 Audited against the Linkedroid MCP tool surface on 2026-09-16 by walking the
 end-to-end journey a commercial skill has to complete.
 
-**Six of ten are now shipped** (2026-09-21), taking the surface from 31 tools
-to 40: `campaigns.get`, `profiles.list_tagged`, `campaigns.delete`,
-`linkedin.withdraw_invitation`, `campaigns.set_schedule`, and the four
-`context.*` tools.
+**Seven of ten are now shipped** (2026-09-21), taking the surface from 31 tools
+to 41: `campaigns.get`, `profiles.list_tagged`, `campaigns.delete`,
+`linkedin.withdraw_invitation`, `campaigns.set_schedule`,
+`linkedin.account_health`, and the four `context.*` tools.
 
 Most of them turned out not to be missing capabilities at all. The extension
 could already withdraw an invitation, delete a campaign and list who carries a
@@ -158,7 +158,7 @@ A caveat kept out of the tool description because it is ours, not LinkedIn's:
 LinkedIn returns 200 on errors. A withdraw that fails server-side will report
 success. Worth fixing when that code is next touched.
 
-### 7. No account health — and the plan limits are invisible — BLOCKED ON A DECISION
+### 7. No account health — and the plan limits are invisible — SHIPPED
 
 The skills advise a volume ramp while blind to the numbers that would inform
 it. Two separate ceilings decide whether a campaign runs, and the MCP exposes
@@ -183,20 +183,35 @@ own, enforced in the Angular layer where the MCP cannot see it.
 Suggested: `linkedin_account_health()` returning both ceilings.
 Spec: [account-health-spec.md](account-health-spec.md).
 
-**Why this one did not ship with the rest.** It needs data from both sides of
-the architecture at once, and a route is one kind or the other. The invite
-credit comes from LinkedIn and needs a `cs` route;
-`getPersonalInviteLimit()` exists in `common.js` but is not exposed through the
-content-script message router. The plan ceiling is local, but `PlanLimits`
-lives only in the Angular `UserService` at runtime and is never persisted —
-though today's *usage* already is, under `planUsage_YYYY-MM-DD`, scoped per
-account and readable from offscreen.
+Shipped as `linkedin.account_health` (tier `read`) — **one call**, both
+ceilings, which needed four changes because the data lives on opposite sides of
+the architecture:
 
-So it needs three things and one choice: persist the plan snapshot from
-`PlanLimitService`, expose the credit call through the router, and then either
-give local tools a way to call the content script, or split the tool in two and
-make the caller correlate the halves. The second is simpler and worse — the
-whole point is one answer to "can this campaign actually run".
+1. **A relay.** Local tools can now call the content script
+   (`callContentScript`). Routes are one kind or the other, so without this the
+   tool would have had to be split in two and the caller made to correlate the
+   halves — which defeats the point, since the question is "can this campaign
+   run", not "here are two numbers".
+2. **`Linkedroid.getInviteCredits`**, exposing `getPersonalInviteLimit()`
+   through the message router for the first time. It asks LinkedIn each time
+   rather than reusing the module-level cache the extension keeps, which
+   drifts across a session and knows nothing about invitations sent from the
+   LinkedIn UI in another tab.
+3. **`PlanLimitService.publishPlanSnapshot()`**, writing the plan and its
+   ceilings where offscreen can read them. Daily *usage* was already reachable
+   under `planUsage_YYYY-MM-DD`; only the caps were missing, so an agent could
+   see twelve visits used and not that the plan allowed twenty.
+4. **The tool**, combining them with explicit `known: false` on either half.
+
+**The `0` ambiguity is fixed at the boundary.** `getPersonalInviteLimit()`
+returns `0` for a parse failure, a network failure and a genuinely exhausted
+allowance alike. `getInviteCredits` maps everything that is not a positive
+number or `-1` to `ok: false`, and the tool reports `known: false` with a
+reason. A credit figure that could not be read is never reported as zero — an
+agent told "0 credits left" would tell the user to stop sending for no reason.
+
+A failed LinkedIn read also does not take the plan half down with it. Half an
+answer beats none, as long as the missing half says it is missing.
 
 The spec also records three bugs in the existing invite-credit code, all of
 which err toward sending too much: the value is cached in a module variable and

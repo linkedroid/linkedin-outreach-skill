@@ -7,14 +7,21 @@ the user's approval, launch, and read the results.
 
 ## What this is, and what it is not
 
-The Linkedroid MCP already describes its own tools well — what each one does,
-what it needs, what it refuses. These skills deliberately do **not** restate
-that. They carry the part a tool schema cannot hold:
+The Linkedroid MCP describes its own tools well, and a capable model already
+plans outreach well. Baseline runs against the live MCP with **no skill loaded**
+produced segmentation, sequencing and copy as good as anything a playbook could
+prescribe. So the skill deliberately does not restate strategy. It carries only
+the part neither the schemas nor the model can know:
 
-- what to establish **before** building anything
-- which tools to use **in what order**, and when to stop and ask
-- how to tell a prospect worth contacting from one who merely matches a filter
-- what must never happen without the user seeing it first
+- what fails **silently** — a dropped AI block, a truncated connection note
+- what a tool does **beyond the obvious** — `run_search` re-targets a running
+  campaign
+- what **cannot be undone**, and what must be seen before it happens
+- the ceilings that make a campaign stall — LinkedIn's and the plan's
+
+It is one file, around 100 lines. Earlier drafts ran to 645 across nine files
+of strategy prose; the baselines showed that prose was redundant, and it was
+cut. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
@@ -39,6 +46,9 @@ name and do nothing useful without it.
 |---|---|
 | `linkedin-outreach` | The user wants leads, pipeline, a GTM motion, a campaign, or wants to reach people who engaged with a post |
 
+One skill, not a library. A second skill is worth adding when there is a
+second set of silent failures to document — not to cover a second use case.
+
 ## Requirements
 
 These skills assume MCP tools that do not all exist yet. See
@@ -59,9 +69,10 @@ into the skills themselves:
 
 1. **Nothing sends without the user seeing the exact content first.**
    `campaigns.create` makes a draft on purpose; creating and starting are
-   separate decisions. This currently rests on the skill being read — see the
+   separate decisions. This currently rests on the skill being read, which is
+   the weakest form the rule can take — see the
    [start digest spec](docs/campaigns-start-digest-spec.md) for moving it into
-   the tool, where it can actually be enforced.
+   the tool, where it can be enforced rather than requested.
 2. **Every personalised claim traces to evidence actually seen.** An invented
    detail about a real person goes out under the user's name.
 

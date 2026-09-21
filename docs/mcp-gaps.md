@@ -35,7 +35,7 @@ between a good prompt and a product.
 
 Spec: [context-store-spec.md](context-store-spec.md).
 
-### 2. No way to read back a campaign's messages — breaks the approval gate
+### 2. No way to read back a campaign's messages — SHIPPED
 
 `campaigns_status` returns node content only for nodes that are **missing**
 content (`needsContent`). For a campaign that is fully filled in it returns
@@ -52,8 +52,10 @@ Found by running a baseline evaluation, not by reading the tool list: an
 assistant with no skill loaded was asked why campaigns were not sending, and
 reported it could not tell the user what either campaign would say.
 
-Suggested: `campaigns_get(campaignId)` returning the full flow — nodes, edges,
-and the content of every message, comment and connection note.
+Shipped as `campaigns.get` (tier `author`). It returns the full flow — nodes,
+edges, and the content of every message, comment and connection note — with
+per-message character counts and per-block AI validation. It also feeds the
+approval card, which had the same blindness in a worse place.
 Spec: [campaigns-get-spec.md](campaigns-get-spec.md).
 
 ### 3. No outcome metrics
@@ -168,19 +170,45 @@ source of error.
 Distinct from the list above: these tools exist and work, but their shape
 pushes safety into prose where it cannot be enforced.
 
-### The approval gate is advisory
+### The approval gate was fine; the approval screen was not — FIXED
 
-Starting a campaign is the only irreversible action in the surface, and the
-only thing standing in front of it is a sentence in a skill file asking the
-assistant to show the messages first. That fails in the ordinary case — a long
-session, a compacted context, a user who says "just go" — not the adversarial
-one.
+This entry originally said the approval gate was advisory, resting on a skill
+file being read. **That was wrong, and it was wrong because it was written from
+the tool list without reading the server.**
 
-Suggested: `campaigns_start` returns a preview and a digest on first call, and
-starts only when handed that digest back, refusing if the content changed in
-between. Approval becomes bound to specific content, so approve-then-edit stops
-being expressible. Spec:
-[campaigns-start-digest-spec.md](campaigns-start-digest-spec.md).
+`campaigns.start` is tier `act`: the job enters `awaiting_approval` and becomes
+claimable only after a human approves it in the extension, and the MCP exposes
+no approval tool, so a model cannot authorise its own start. The enforcement
+was already there, in the one layer the model cannot reach.
+
+What was broken is what the human saw. `describe()` rendered the exact text for
+every other act-tier tool and let `campaigns.start` fall through to a raw
+`{ campaignId }` dump — so the call that sends the most was the only one
+approved blind. Fixed by rendering the campaign's name, audience and every
+message on the card, and by `campaigns.get` giving the model the same content.
+
+The withdrawn digest proposal is kept at
+[campaigns-start-digest-spec.md](campaigns-start-digest-spec.md) for the
+lesson: read the enforcement before designing the safeguard.
+
+### `reason` is plumbed end to end and carries nothing
+
+`AgentJob` stores a `reason`, the approval card renders it under a quote icon,
+and `agent/mcp-server.js` hardcodes `reason: 'Requested via remote MCP'` on
+every call. No tool schema asks the model for one, so every card shows the same
+dead string where the justification should be.
+
+Adding `reason` to the act-tier schemas is likely the cheapest real safety win
+available: the approver would see *why* beside *what*, in a field that already
+renders.
+
+### `run_search` is tier `read` but mutates
+
+Its own description says it navigates the user's working tab **and** re-targets
+an active Quick Campaign. `read` tier means no approval is required. A
+read-tier tool with a write side effect is a tier misclassification, and it is
+the cleanest argument for fixing tools rather than documenting them: the skill
+was carrying a warning that the tier system exists to make unnecessary.
 
 ## A side effect worth guarding
 

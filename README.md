@@ -57,8 +57,8 @@ These skills assume MCP tools that do not all exist yet. See
 | Spec | Why |
 |---|---|
 | [context store](docs/context-store-spec.md) | Without it the assistant re-asks the user about their own business every session |
-| [`campaigns_get`](docs/campaigns-get-spec.md) | Nothing can read a campaign's messages back, so the approval rule below is unfollowable for any campaign the assistant did not just write |
-| [`campaigns_start` digest](docs/campaigns-start-digest-spec.md) | Makes that approval rule enforced rather than advisory |
+| [`campaigns_get`](docs/campaigns-get-spec.md) | **Shipped.** Reads a campaign's messages back — for the model, and for the approval screen that showed a bare campaign id |
+| [`campaigns_start` digest](docs/campaigns-start-digest-spec.md) | **Withdrawn.** The `act` tier already gates starts on a human; the defect was the approval screen, not the protocol |
 | [`linkedin_account_health`](docs/account-health-spec.md) | Both ceilings that stop a campaign — LinkedIn's invite credits and the Linkedroid plan limits — are invisible over MCP, so a campaign can be built that cannot run |
 
 ## Safety
@@ -69,10 +69,9 @@ into the skills themselves:
 
 1. **Nothing sends without the user seeing the exact content first.**
    `campaigns.create` makes a draft on purpose; creating and starting are
-   separate decisions. This currently rests on the skill being read, which is
-   the weakest form the rule can take — see the
-   [start digest spec](docs/campaigns-start-digest-spec.md) for moving it into
-   the tool, where it can be enforced rather than requested.
+   separate decisions. Starting is `act`-tier, so a human must also approve it
+   in the extension — but the assistant showing the messages in the
+   conversation is still where the user reads them in context.
 2. **Every personalised claim traces to evidence actually seen.** An invented
    detail about a real person goes out under the user's name.
 

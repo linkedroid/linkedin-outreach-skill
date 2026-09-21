@@ -24,12 +24,17 @@ the measurement the send/hold gate was meant to test, so the gate stays.
 
 ### Specs
 
-- `campaigns_get` — read a campaign's messages back. Without it the approval
-  rule is unfollowable for any campaign the assistant did not just write.
-- `campaigns_start` digest confirmation — binds approval to specific content,
-  so the rule is enforced rather than requested.
+- `campaigns_get` — **shipped** as `campaigns.get`. Reads a campaign back in
+  full, with per-message character counts and per-block AI validation.
+- `campaigns_start` digest confirmation — **withdrawn**. Reading the server
+  showed `campaigns.start` is already `act`-tier, gated on a human approving it
+  in the extension, outside the model's reach. The spec had been written from
+  the tool list alone and proposed rebuilding, where the model can see it, a
+  guarantee already enforced where it cannot. The real defect was the approval
+  screen rendering a bare campaign id; that is fixed.
 - `linkedin_account_health` — both ceilings that stop a campaign.
-- The MCP gap audit now runs to ten entries plus two design changes.
+- The MCP gap audit now runs to ten entries plus four design notes, two of them
+  corrections to earlier entries written without reading the server.
 
 ## Earlier
 

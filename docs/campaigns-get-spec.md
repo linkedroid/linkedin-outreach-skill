@@ -1,5 +1,9 @@
 # `campaigns_get` — MCP tool spec
 
+**Status: implemented.** `campaigns.get`, tier `author`, handler in
+`offscreen/agent/local-tools.js`, manifest entry in `apis/agent/tools.json`.
+Covered by 21 assertions in `offscreen/agent/local-tools.test.mjs`.
+
 Read a campaign back: its flow and the actual text of every message.
 
 ## Contents
@@ -60,9 +64,12 @@ Read-only. Touches nothing.
         "characters": 283,
         "limit": 300,                    // null where the platform imposes none
         "variables": ["firstName"],
+        "overLimit": false,
         "aiBlocks": [
-          { "label": "Why", "prompt": "one line on why this person...", "valid": true }
-        ]
+          { "label": "Why", "prompt": "one line on why…", "valid": true, "problem": null }
+        ],
+        "willSend": true
+      }
       }
     }
   ],
@@ -86,8 +93,20 @@ is here, before the campaign runs.
 
 **Validate AI blocks and say so.** An `[[ai:…]]` block without a `Label::` is
 silently discarded at send time and the message goes out with a hole in it.
-`aiBlocks[].valid: false` turns a silent failure into a visible one. This is
-the highest-value field in the response.
+`aiBlocks[].valid: false` turns a silent failure into a visible one, with
+`problem` naming which of `missing-label` / `empty-prompt` / `unclosed` it is.
+This is the highest-value field in the response.
+
+As built, the parsing is shared: `extractPrompts()` in
+`offscreen/agent/campaign-content.js` is the one walker, used both by
+`validateContent` at write time and here at read time. Two parsers for one
+syntax would drift, and the failure they catch is silent enough already.
+
+**A second silent failure surfaced while implementing this.** A connection note
+only reaches LinkedIn when `useTemplate` is also set — a note written without
+it is stored and never sent, with nothing reporting the discrepancy. The
+implementation returns `willSend: false` for that case. It was not in the
+original spec; it was found by reading `CONTENT_NODES` in the extension.
 
 **Keep `needsContent` consistent with `campaigns_status`.** Two tools reporting
 the same condition differently is worse than one tool reporting it.

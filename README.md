@@ -31,7 +31,7 @@ Skills are directories of markdown. Point your client at `skills/`:
 automatically:
 
 ```bash
-git clone https://github.com/<org>/linkedroid-skills .claude/skills/linkedroid
+git clone https://github.com/linkedroid/linkedin-outreach-skill .claude/skills/linkedroid
 ```
 
 **Claude Desktop / claude.ai** — upload the `skills/linkedin-outreach`

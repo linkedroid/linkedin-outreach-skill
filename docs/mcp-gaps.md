@@ -3,8 +3,8 @@
 Audited against the Linkedroid MCP tool surface on 2026-09-16 by walking the
 end-to-end journey a commercial skill has to complete.
 
-**Seven of ten are now shipped** (2026-09-21), taking the surface from 31 tools
-to 41: `campaigns.get`, `profiles.list_tagged`, `campaigns.delete`,
+**Nine of ten are now shipped** (2026-09-21), taking the surface from 31 tools
+to 41 and fixing two existing ones: `campaigns.get`, `profiles.list_tagged`, `campaigns.delete`,
 `linkedin.withdraw_invitation`, `campaigns.set_schedule`,
 `linkedin.account_health`, and the four `context.*` tools.
 
@@ -89,7 +89,7 @@ per-message character counts and per-block AI validation. It also feeds the
 approval card, which had the same blindness in a worse place.
 Spec: [campaigns-get-spec.md](campaigns-get-spec.md).
 
-### 3. No outcome metrics
+### 3. No outcome metrics — SHIPPED
 
 `campaigns_stats` reports contacted, failed and remaining — activity, not
 results. Missing: invitation acceptance rate, reply rate, and per-node or
@@ -99,8 +99,27 @@ Consequences: a retro cannot answer "which message worked", the `ab_split` node
 cannot be scored so the feature is decorative, and commercially there is no way
 to show a customer what their spend produced — which is what renewals turn on.
 
-Suggested: extend `campaigns_stats` with `accepted`, `replied`, and a per-node
-breakdown, rather than adding a tool.
+Shipped by extending `campaigns_stats`, which now returns `outcomes` for a drip
+campaign: invitations and messages actually sent, acceptances, replies, the
+rate for each, and a per-node breakdown including which way every branch sent
+people — which is what finally scores an `ab_split`.
+
+**This needed an engine change, because the data was not being recorded.**
+Acceptance and reply are not actions, they are condition outcomes: a
+`connected` or `replied` check routing a prospect down its yes port. That
+outcome existed only inside a prose `detail` string — `Condition "connected"
+evaluated → yes path` — so the one thing a campaign is judged on could only be
+recovered by parsing an English sentence.
+
+Both engines now record `port` and `conditionType` structurally, mirrored per
+rule 3 in `CLAUDE.md`: `flow-engine.service.ts` and `offscreen-engine.js`.
+Campaigns that ran before this still fall back to parsing the sentence, because
+an old campaign deserves an answer too.
+
+A rate over zero attempts is `null`, not 0% — nobody has been asked yet is a
+different answer from nobody said yes. `outcomes` is `null` for message
+campaigns, which keep no per-prospect history; returning zeroes would read as
+"nobody replied".
 
 ### 4. `profiles_list_tags` returns counts, not members — SHIPPED
 
@@ -124,7 +143,7 @@ not the page size — a caller sizing an audience needs the former.
 The membership was in the same stored record all along; only the count was
 being exposed.
 
-### 5. No facet resolution
+### 5. No facet resolution — NEEDS A CAPTURE
 
 `run_search` takes LinkedIn numeric ids for location, industry and company, and
 its own description says to omit them unless you have real ids. So an ICP of
@@ -133,6 +152,21 @@ geography — usually the second most important filter after title — is lost.
 
 Suggested: `linkedin_resolve_facet(kind: 'geo'|'industry'|'company', query:
 string)` returning candidate ids with names to choose from.
+
+**The only one of the ten that cannot be built from what is in the repo.**
+`search-url.js` already knows the parameter names and that ids are bare numbers
+rather than URNs, so the consuming half is ready. What is missing is the
+request that turns "United Kingdom" into `101165590` — LinkedIn's typeahead,
+whose GraphQL query name and variable shape are not used anywhere in this
+codebase.
+
+`queryIdStore` scrapes query ids from LinkedIn's own bundles at runtime, so the
+id itself is solvable the same way the messaging ones are. The query *name* and
+variable shape are not guessable, and a wrong guess produces exactly the
+failure this audit keeps finding: a tool that returns nothing and says nothing.
+
+So this one waits on a captured request from a logged-in session, not on
+design.
 
 ### 6. No withdraw invitation — SHIPPED
 
@@ -218,7 +252,7 @@ which err toward sending too much: the value is cached in a module variable and
 decremented locally rather than refetched, and every failure path returns `0`,
 which is indistinguishable from genuinely out of credits.
 
-### 8. `linkedin_list_connections` times out
+### 8. `linkedin_list_connections` times out — FIXED
 
 Called with no arguments in a baseline run, it returned no data. The assistant
 was building a launch plan whose warm lane depended on the connection list, and
@@ -227,7 +261,20 @@ job.
 
 This is a reliability bug rather than a missing capability, but it has the same
 effect: the warm audience, which is the cheapest and highest-converting one
-available, cannot be reached. Needs pagination or a default limit.
+available, cannot be reached.
+
+**The cause.** `getAllConnection` had an offset but no page size. With no
+keyword it walked the entire connection list — ten per request, with a
+three-second pause between requests. A user with a thousand connections needs
+about five minutes; the dispatcher gives a tool ninety seconds. It was never
+going to return.
+
+Fixed by adding an opt-in `limit`. The default stays unbounded so the app's
+background connection sync, which does want everything, is untouched; the MCP
+adapter always passes one, defaulting to 50 and capped at 100 — ten per
+request means 100 is already around thirty seconds. The response now carries
+`hasMore` and `nextOffset` so a caller can page without decoding LinkedIn's
+paging shape.
 
 ### 9. No tool to configure the send schedule — SHIPPED
 

@@ -3,8 +3,10 @@
 Audited against the Linkedroid MCP tool surface on 2026-09-16 by walking the
 end-to-end journey a commercial skill has to complete.
 
-**Four are now shipped** (2026-09-21): `campaigns.get`, `profiles.list_tagged`,
-`campaigns.delete` and `linkedin.withdraw_invitation`. The surface is 35 tools.
+**Six of ten are now shipped** (2026-09-21), taking the surface from 31 tools
+to 40: `campaigns.get`, `profiles.list_tagged`, `campaigns.delete`,
+`linkedin.withdraw_invitation`, `campaigns.set_schedule`, and the four
+`context.*` tools.
 
 Most of them turned out not to be missing capabilities at all. The extension
 could already withdraw an invitation, delete a campaign and list who carries a
@@ -37,7 +39,7 @@ the inbox are all served. Two tools are notably better than typical:
 
 ## The gaps, in priority order
 
-### 1. No persistent context store — blocks the core promise
+### 1. No persistent context store — SHIPPED
 
 There is nowhere to keep the user's ICP, offer or writing voice, so every
 session starts by re-interrogating them about their own business. That is the
@@ -46,7 +48,23 @@ experience the product exists to replace.
 Everything else on this list is an improvement. This one is the difference
 between a good prompt and a product.
 
+Shipped as `context.set` / `get` / `list` / `delete` (tier `author`).
 Spec: [context-store-spec.md](context-store-spec.md).
+
+**One change from the spec.** It argued for server-side storage. As built it is
+local, in the extension, beside the user's tags and campaigns — because every
+route in this architecture executes in the extension anyway, and because
+campaigns and tags are already device-local. Server-side storage would have
+made context the only thing that synced, which is a more confusing product than
+one that consistently does not.
+
+The cost is real and should be said plainly: context does not follow a user to
+a second machine. It is scoped per LinkedIn identity, so an agency switching
+accounts gets that account's context, which is right.
+
+`context.get` distinguishes a key never set from a key set to empty. That is
+the difference between asking an onboarding question and not asking it again,
+and it is the only reason `missing` exists as a separate field.
 
 ### 2. No way to read back a campaign's messages — SHIPPED
 
@@ -140,7 +158,7 @@ A caveat kept out of the tool description because it is ours, not LinkedIn's:
 LinkedIn returns 200 on errors. A withdraw that fails server-side will report
 success. Worth fixing when that code is next touched.
 
-### 7. No account health — and the plan limits are invisible
+### 7. No account health — and the plan limits are invisible — BLOCKED ON A DECISION
 
 The skills advise a volume ramp while blind to the numbers that would inform
 it. Two separate ceilings decide whether a campaign runs, and the MCP exposes
@@ -165,6 +183,21 @@ own, enforced in the Angular layer where the MCP cannot see it.
 Suggested: `linkedin_account_health()` returning both ceilings.
 Spec: [account-health-spec.md](account-health-spec.md).
 
+**Why this one did not ship with the rest.** It needs data from both sides of
+the architecture at once, and a route is one kind or the other. The invite
+credit comes from LinkedIn and needs a `cs` route;
+`getPersonalInviteLimit()` exists in `common.js` but is not exposed through the
+content-script message router. The plan ceiling is local, but `PlanLimits`
+lives only in the Angular `UserService` at runtime and is never persisted —
+though today's *usage* already is, under `planUsage_YYYY-MM-DD`, scoped per
+account and readable from offscreen.
+
+So it needs three things and one choice: persist the plan snapshot from
+`PlanLimitService`, expose the credit call through the router, and then either
+give local tools a way to call the content script, or split the tool in two and
+make the caller correlate the halves. The second is simpler and worse — the
+whole point is one answer to "can this campaign actually run".
+
 The spec also records three bugs in the existing invite-credit code, all of
 which err toward sending too much: the value is cached in a module variable and
 decremented locally rather than refetched, and every failure path returns `0`,
@@ -181,7 +214,7 @@ This is a reliability bug rather than a missing capability, but it has the same
 effect: the warm audience, which is the cheapest and highest-converting one
 available, cannot be reached. Needs pagination or a default limit.
 
-### 9. No tool to configure the send schedule
+### 9. No tool to configure the send schedule — SHIPPED
 
 `campaigns_status` exposes `schedule.enabled: false`, and a baseline run
 correctly flagged that sends would fire at any hour — then had to tell the user
@@ -189,6 +222,12 @@ to fix it by hand, because nothing exposes the setting.
 
 Off-hours automation is one of the more visible tells, so a skill that can spot
 the problem and not fix it is doing half a job.
+
+Shipped as `campaigns.set_schedule` (tier `author`). It writes the same
+`userSettings` shape `sw.js` reads and re-derives the alarms, refuses a window
+that would allow nothing (`endHour` at or before `startHour`), refuses the same
+weekday twice rather than silently keeping one, and refuses to do nothing
+quietly. The description notes that it changes every campaign rather than one.
 
 ### 10. No campaign delete or archive — SHIPPED
 

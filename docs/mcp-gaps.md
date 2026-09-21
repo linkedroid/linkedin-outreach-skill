@@ -107,18 +107,35 @@ negative signals on an account.
 
 Suggested: `linkedin_withdraw_invitation(publicIdentifier)`.
 
-### 7. No account health
+### 7. No account health — and the plan limits are invisible
 
 The skills advise a volume ramp while blind to the numbers that would inform
-it: invitations sent today, acceptance rate over the last week, whether the
-account is currently restricted.
+it. Two separate ceilings decide whether a campaign runs, and the MCP exposes
+neither.
 
-For a product whose principal risk is the customer's account, that is the wrong
-thing to be blind to. Advice given without the numbers is a guess presented as
-a recommendation.
+**LinkedIn's.** Invitation credits and any platform restriction. The extension
+already reads the credit figure — `getPersonalInviteLimit()` in
+`content_script/common.js` pulls `remainingCustomInviteCredits` straight from
+LinkedIn — so this is plumbing an existing number through, not new work.
 
-Suggested: `linkedin_account_health()` returning today's action counts, recent
-acceptance rate, and any restriction the platform exposes.
+**Linkedroid's plan.** `PlanLimits` caps profile visits, scans, messages and AI
+generations per day, and hard-caps campaign size, active campaigns, tags and
+schedules. A FREE account allows 20 visits a day and 50 profiles per campaign.
+Nothing over MCP says so, so an assistant can build a 400-prospect campaign for
+that user, start it, and watch it silently stall. The user reads that as the
+product not working.
+
+That second half is the more commercially important one and it was missed in
+the original audit — it is not a LinkedIn constraint at all, it is Linkedroid's
+own, enforced in the Angular layer where the MCP cannot see it.
+
+Suggested: `linkedin_account_health()` returning both ceilings.
+Spec: [account-health-spec.md](account-health-spec.md).
+
+The spec also records three bugs in the existing invite-credit code, all of
+which err toward sending too much: the value is cached in a module variable and
+decremented locally rather than refetched, and every failure path returns `0`,
+which is indistinguishable from genuinely out of credits.
 
 ### 8. `linkedin_list_connections` times out
 

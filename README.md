@@ -49,6 +49,7 @@ These skills assume MCP tools that do not all exist yet. See
 | [context store](docs/context-store-spec.md) | Without it the assistant re-asks the user about their own business every session |
 | [`campaigns_get`](docs/campaigns-get-spec.md) | Nothing can read a campaign's messages back, so the approval rule below is unfollowable for any campaign the assistant did not just write |
 | [`campaigns_start` digest](docs/campaigns-start-digest-spec.md) | Makes that approval rule enforced rather than advisory |
+| [`linkedin_account_health`](docs/account-health-spec.md) | Both ceilings that stop a campaign — LinkedIn's invite credits and the Linkedroid plan limits — are invisible over MCP, so a campaign can be built that cannot run |
 
 ## Safety
 

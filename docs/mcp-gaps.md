@@ -1,7 +1,20 @@
 # MCP capability gaps
 
-Audited against the Linkedroid MCP tool surface (~31 tools) on 2026-09-16 by
-walking the end-to-end journey a commercial skill has to complete.
+Audited against the Linkedroid MCP tool surface on 2026-09-16 by walking the
+end-to-end journey a commercial skill has to complete.
+
+**Four are now shipped** (2026-09-21): `campaigns.get`, `profiles.list_tagged`,
+`campaigns.delete` and `linkedin.withdraw_invitation`. The surface is 35 tools.
+
+Most of them turned out not to be missing capabilities at all. The extension
+could already withdraw an invitation, delete a campaign and list who carries a
+tag — the manifest simply never advertised any of it. Where real work was
+needed it was usually one layer over from where this document pointed: the
+withdraw tool was trivial, but `get_pending_invitations` projected the
+invitation id away, so the id the write needed never reached the model.
+
+The lesson for the rest of this list: check whether the capability exists
+before designing it.
 
 ## Contents
 - What is already covered
@@ -71,7 +84,7 @@ to show a customer what their spend produced — which is what renewals turn on.
 Suggested: extend `campaigns_stats` with `accepted`, `replied`, and a per-node
 breakdown, rather than adding a tool.
 
-### 4. `profiles_list_tags` returns counts, not members
+### 4. `profiles_list_tags` returns counts, not members — SHIPPED
 
 A tag's size is visible; who is in it is not. So an assistant cannot check
 whether the people it is about to tag are already in another tag, or whether
@@ -85,8 +98,13 @@ has not started yet.
 Found in a baseline run: an assistant tagging eleven new leads noted it could
 not rule out double-tagging against the existing `Q4 Pipeline` tag.
 
-Suggested: `profiles_list_tagged(tag, start?, limit?)` returning the public
-identifiers carrying a tag.
+Shipped as `profiles.list_tagged` (tier `read`). Returns who carries a tag,
+with **every other tag each of them holds**, so an overlap between two
+audiences is visible without a second call. `total` is how many carry the tag,
+not the page size — a caller sizing an audience needs the former.
+
+The membership was in the same stored record all along; only the count was
+being exposed.
 
 ### 5. No facet resolution
 
@@ -98,7 +116,7 @@ geography — usually the second most important filter after title — is lost.
 Suggested: `linkedin_resolve_facet(kind: 'geo'|'industry'|'company', query:
 string)` returning candidate ids with names to choose from.
 
-### 6. No withdraw invitation
+### 6. No withdraw invitation — SHIPPED
 
 `get_pending_invitations` exists and its description notes stale invites are
 "worth withdrawing" — but nothing can withdraw one. The skill can diagnose and
@@ -107,7 +125,20 @@ then do nothing.
 This matters because a large pile of ignored invitations is one of the clearer
 negative signals on an account.
 
-Suggested: `linkedin_withdraw_invitation(publicIdentifier)`.
+Shipped as `linkedin.withdraw_invitation` (tier `act`, so a human approves each
+one). It takes an `invitationId`.
+
+`Linkedroid.withdrawPendingInvitation` already existed in `data_scrapper.js`
+and was already routed, so the tool itself was a manifest entry. The actual
+work was one layer over: `get_pending_invitations` runs through `pickProfile`,
+a whitelist of profile fields, which dropped the invitation id — so every
+invitation could be listed and none could be withdrawn. The adapter now carries
+`invitationId` and `sentAt`, and nothing else from the raw record.
+
+A caveat kept out of the tool description because it is ours, not LinkedIn's:
+`withdrawPendingInvitation` uses `$.ajax` and treats any 200 as success, but
+LinkedIn returns 200 on errors. A withdraw that fails server-side will report
+success. Worth fixing when that code is next touched.
 
 ### 7. No account health — and the plan limits are invisible
 
@@ -159,11 +190,17 @@ to fix it by hand, because nothing exposes the setting.
 Off-hours automation is one of the more visible tells, so a skill that can spot
 the problem and not fix it is doing half a job.
 
-### 10. No campaign delete or archive
+### 10. No campaign delete or archive — SHIPPED
 
 Drafts accumulate in `campaigns_list` with no way to remove them. Cosmetic
 until a user has thirty, at which point choosing the right one becomes a real
 source of error.
+
+Shipped as `campaigns.delete` (tier `author`). It refuses with
+`CAMPAIGN_RUNNING` while a campaign is active — stopping and deleting are
+different decisions, and halting live outreach must never be a side effect of
+tidying up. There is no archive and the description says so rather than
+implying one.
 
 ## Design changes worth making
 

@@ -76,6 +76,15 @@ into the skills themselves:
 2. **Every personalised claim traces to evidence actually seen.** An invented
    detail about a real person goes out under the user's name.
 
+## Evaluations
+
+[evals/](evals/) holds the case suite. The rule that governs it: **every case
+runs with the skill and without it, and any line the control run already
+honours gets deleted.** Applying that rule is what cut this skill to one file.
+
+[evals/results/](evals/results/) records the runs, including the one whose
+methodology was flawed and why.
+
 ## Versioning
 
 A skill encodes how the tools behave, so it versions with the MCP server.

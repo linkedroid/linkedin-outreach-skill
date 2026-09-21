@@ -6,6 +6,7 @@ walking the end-to-end journey a commercial skill has to complete.
 ## Contents
 - What is already covered
 - The gaps, in priority order
+- Design changes worth making
 - A side effect worth guarding
 
 ## What is already covered
@@ -53,6 +54,7 @@ reported it could not tell the user what either campaign would say.
 
 Suggested: `campaigns_get(campaignId)` returning the full flow — nodes, edges,
 and the content of every message, comment and connection note.
+Spec: [campaigns-get-spec.md](campaigns-get-spec.md).
 
 ### 3. No outcome metrics
 
@@ -118,11 +120,50 @@ a recommendation.
 Suggested: `linkedin_account_health()` returning today's action counts, recent
 acceptance rate, and any restriction the platform exposes.
 
-### 8. No campaign delete or archive
+### 8. `linkedin_list_connections` times out
+
+Called with no arguments in a baseline run, it returned no data. The assistant
+was building a launch plan whose warm lane depended on the connection list, and
+had to fall back to seven profile viewers — an audience far too small for the
+job.
+
+This is a reliability bug rather than a missing capability, but it has the same
+effect: the warm audience, which is the cheapest and highest-converting one
+available, cannot be reached. Needs pagination or a default limit.
+
+### 9. No tool to configure the send schedule
+
+`campaigns_status` exposes `schedule.enabled: false`, and a baseline run
+correctly flagged that sends would fire at any hour — then had to tell the user
+to fix it by hand, because nothing exposes the setting.
+
+Off-hours automation is one of the more visible tells, so a skill that can spot
+the problem and not fix it is doing half a job.
+
+### 10. No campaign delete or archive
 
 Drafts accumulate in `campaigns_list` with no way to remove them. Cosmetic
 until a user has thirty, at which point choosing the right one becomes a real
 source of error.
+
+## Design changes worth making
+
+Distinct from the list above: these tools exist and work, but their shape
+pushes safety into prose where it cannot be enforced.
+
+### The approval gate is advisory
+
+Starting a campaign is the only irreversible action in the surface, and the
+only thing standing in front of it is a sentence in a skill file asking the
+assistant to show the messages first. That fails in the ordinary case — a long
+session, a compacted context, a user who says "just go" — not the adversarial
+one.
+
+Suggested: `campaigns_start` returns a preview and a digest on first call, and
+starts only when handed that digest back, refusing if the content changed in
+between. Approval becomes bound to specific content, so approve-then-edit stops
+being expressible. Spec:
+[campaigns-start-digest-spec.md](campaigns-start-digest-spec.md).
 
 ## A side effect worth guarding
 

@@ -42,10 +42,13 @@ name and do nothing useful without it.
 ## Requirements
 
 These skills assume MCP tools that do not all exist yet. See
-[docs/mcp-gaps.md](docs/mcp-gaps.md) for the audit. The significant one is a
-per-user context store — without it the assistant re-asks the user about their
-business every session. Spec:
-[docs/context-store-spec.md](docs/context-store-spec.md).
+[docs/mcp-gaps.md](docs/mcp-gaps.md) for the audit. Three have written specs:
+
+| Spec | Why |
+|---|---|
+| [context store](docs/context-store-spec.md) | Without it the assistant re-asks the user about their own business every session |
+| [`campaigns_get`](docs/campaigns-get-spec.md) | Nothing can read a campaign's messages back, so the approval rule below is unfollowable for any campaign the assistant did not just write |
+| [`campaigns_start` digest](docs/campaigns-start-digest-spec.md) | Makes that approval rule enforced rather than advisory |
 
 ## Safety
 
@@ -55,7 +58,9 @@ into the skills themselves:
 
 1. **Nothing sends without the user seeing the exact content first.**
    `campaigns.create` makes a draft on purpose; creating and starting are
-   separate decisions.
+   separate decisions. This currently rests on the skill being read — see the
+   [start digest spec](docs/campaigns-start-digest-spec.md) for moving it into
+   the tool, where it can actually be enforced.
 2. **Every personalised claim traces to evidence actually seen.** An invented
    detail about a real person goes out under the user's name.
 
